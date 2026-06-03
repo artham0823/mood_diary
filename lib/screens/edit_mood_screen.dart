@@ -5,18 +5,19 @@ import '../theme/app_colors.dart';
 import '../database/db_helper.dart';
 import '../models/mood_entry.dart';
 
-class AddMoodScreen extends StatefulWidget {
-  const AddMoodScreen({super.key});
+class EditMoodScreen extends StatefulWidget {
+  final MoodEntry entry;
+  const EditMoodScreen({super.key, required this.entry});
 
   @override
-  State<AddMoodScreen> createState() => _AddMoodScreenState();
+  State<EditMoodScreen> createState() => _EditMoodScreenState();
 }
 
-class _AddMoodScreenState extends State<AddMoodScreen> {
-  int _selectedMoodIndex = -1;
-  final Set<String> _selectedActivities = {};
-  DateTime _selectedDate = DateTime.now();
-  final TextEditingController _notesController = TextEditingController();
+class _EditMoodScreenState extends State<EditMoodScreen> {
+  late int _selectedMoodIndex;
+  late Set<String> _selectedActivities;
+  late DateTime _selectedDate;
+  late TextEditingController _notesController;
 
   final List<Map<String, dynamic>> moods = [
     {"label": "Sangat Buruk", "color": AppColors.moodVeryBad, "icon": Icons.sentiment_very_dissatisfied},
@@ -45,6 +46,17 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _selectedMoodIndex = widget.entry.moodIndex;
+    _selectedActivities = widget.entry.activities.isNotEmpty
+        ? widget.entry.activities.split(',').toSet()
+        : {};
+    _selectedDate = DateTime.parse(widget.entry.date);
+    _notesController = TextEditingController(text: widget.entry.notes);
+  }
+
+  @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
@@ -64,10 +76,10 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
     }
   }
 
-  void _saveEntry() async {
+  void _updateEntry() async {
     if (_selectedMoodIndex == -1) return;
 
-    final entry = MoodEntry(
+    final updatedEntry = widget.entry.copyWith(
       moodIndex: _selectedMoodIndex,
       date: DateFormat('yyyy-MM-dd').format(_selectedDate),
       activities: _selectedActivities.join(','),
@@ -75,18 +87,18 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
     );
 
     try {
-      await DBHelper.insertMood(entry);
+      await DBHelper.updateMood(updatedEntry);
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Laporan Misi Disimpan!')),
+          const SnackBar(content: Text('Catatan berhasil diperbarui!')),
         );
       }
     } catch (e) {
-      debugPrint('Error saving mood: $e');
+      debugPrint('Error updating mood: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyimpan: $e')),
+          SnackBar(content: Text('Gagal memperbarui: $e')),
         );
       }
     }
@@ -98,7 +110,7 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catat Mood'),
+        title: const Text('Edit Mood'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
@@ -109,18 +121,11 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Bagaimana kabarmu hari ini, prajurit?',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            Text(
+              'Ubah catatan moodmu, prajurit!',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 16),
             InkWell(
@@ -137,7 +142,7 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.calendar_today, size: 20, color: AppColors.darkAccentGold),
+                    const Icon(Icons.calendar_today, size: 20, color: AppColors.darkAccentGold),
                     const SizedBox(width: 8),
                     Text(
                       DateFormat('dd MMM yyyy').format(_selectedDate),
@@ -249,9 +254,7 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
                                 Text(
                                   activity["name"],
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: isSelected
-                                            ? AppColors.darkAccentGold
-                                            : null,
+                                        color: isSelected ? AppColors.darkAccentGold : null,
                                         fontSize: 10,
                                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                       ),
@@ -286,21 +289,15 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
                 fillColor: isDark ? const Color(0xFF111111) : AppColors.lightSurface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: isDark ? Colors.white10 : Colors.black12,
-                  ),
+                  borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: isDark ? Colors.white10 : Colors.black12,
-                  ),
+                  borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppColors.darkAccentGold,
-                  ),
+                  borderSide: const BorderSide(color: AppColors.darkAccentGold),
                 ),
               ),
             ),
@@ -312,18 +309,17 @@ class _AddMoodScreenState extends State<AddMoodScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
-            onPressed: _selectedMoodIndex != -1 ? _saveEntry : null,
+            onPressed: _updateEntry,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.darkAccentGold,
               foregroundColor: Colors.black87,
-              disabledBackgroundColor: isDark ? Colors.white12 : Colors.black12,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
             child: Text(
-              'Simpan',
+              'Perbarui',
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
